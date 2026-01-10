@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 195 100% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 195 100% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 195 100% 45%;
+
+    --radius: 0.5rem;
+
+    /* Trading specific colors */
+    --bullish: 142 76% 36%;
+    --bullish-foreground: 210 40% 98%;
+    --bearish: 0 72% 51%;
+    --bearish-foreground: 210 40% 98%;
+    --neutral: 220 15% 55%;
+    
+    /* Chart colors */
+    --chart-1: 195 100% 45%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 0 72% 51%;
+    --chart-4: 48 96% 53%;
+    --chart-5: 280 80% 60%;
+    
+    /* Gradients */
+    --gradient-bullish: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
+    --gradient-bearish: linear-gradient(135deg, hsl(0 72% 51%), hsl(0 72% 61%));
+    --gradient-primary: linear-gradient(135deg, hsl(195 100% 45%), hsl(195 100% 55%));
+    
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 195 100% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 195 100% 45%;
+  }
+
+  .dark {
+    --background: 220 15% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 220 15% 10%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 220 15% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 195 100% 45%;
+    --primary-foreground: 220 15% 8%;
+
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 220 15% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 195 100% 45%;
+    --accent-foreground: 220 15% 8%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 195 100% 45%;
+
+    /* Trading specific colors */
+    --bullish: 142 76% 36%;
+    --bullish-foreground: 210 40% 98%;
+    --bearish: 0 72% 51%;
+    --bearish-foreground: 210 40% 98%;
+    --neutral: 220 15% 55%;
+    
+    /* Chart colors */
+    --chart-1: 195 100% 45%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 0 72% 51%;
+    --chart-4: 48 96% 53%;
+    --chart-5: 280 80% 60%;
+    
+    /* Gradients */
+    --gradient-bullish: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
+    --gradient-bearish: linear-gradient(135deg, hsl(0 72% 51%), hsl(0 72% 61%));
+    --gradient-primary: linear-gradient(135deg, hsl(195 100% 45%), hsl(195 100% 55%));
+    
+    --sidebar-background: 220 15% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 195 100% 45%;
+    --sidebar-primary-foreground: 220 15% 8%;
+    --sidebar-accent: 220 15% 15%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-ring: 195 100% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

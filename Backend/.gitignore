@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+.venv/
+
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+**/.dockerignore
+# Local data
+backend/data/*
+!backend/data/.gitkeep
+
+# Logs
+*.log
