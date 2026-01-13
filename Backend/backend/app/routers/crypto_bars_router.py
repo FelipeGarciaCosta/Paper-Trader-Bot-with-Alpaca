@@ -49,37 +49,37 @@ def fetch_crypto_bars(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Error calling Alpaca: {e}")
 
-    bars_by_symbol = data.get("bars", {}) or {}
+    # get_crypto_bars returns a list directly, not a dict with "bars" key
+    bars = data if isinstance(data, list) else []
 
     mapped = []
-    for sym, bars in bars_by_symbol.items():
-        for b in bars:
+    for b in bars:
+        try:
+            ts_raw = b.get("t")
             try:
-                ts_raw = b.get("t")
-                try:
-                    dt = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00"))
-                except Exception:
-                    try:
-                        dt = datetime.utcfromtimestamp(int(ts_raw))
-                    except Exception:
-                        continue
-
-                mapped.append(
-                    {
-                        "symbol": sym,
-                        "timeframe": timeframe,
-                        "timestamp": dt,
-                        "open": b.get("o"),
-                        "high": b.get("h"),
-                        "low": b.get("l"),
-                        "close": b.get("c"),
-                        "volume": b.get("v"),
-                        "trade_count": b.get("n"),
-                        "vwap": b.get("vw"),
-                    }
-                )
+                dt = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00"))
             except Exception:
-                continue
+                try:
+                    dt = datetime.utcfromtimestamp(int(ts_raw))
+                except Exception:
+                    continue
+
+            mapped.append(
+                {
+                    "symbol": symbols,  # Use the requested symbol
+                    "timeframe": timeframe,
+                    "timestamp": dt,
+                    "open": b.get("o"),
+                    "high": b.get("h"),
+                    "low": b.get("l"),
+                    "close": b.get("c"),
+                    "volume": b.get("v"),
+                    "trade_count": b.get("n"),
+                    "vwap": b.get("vw"),
+                }
+            )
+        except Exception:
+            continue
 
     mapped.sort(key=lambda x: x["timestamp"])
     return mapped

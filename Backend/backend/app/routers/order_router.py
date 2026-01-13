@@ -2,26 +2,41 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.order import Order
+from app.models.user import User
 from app.schemas.order import OrderCreate, OrderRead, AlpacaOrder, OrderReplace
 from datetime import datetime
 from app.services.alpaca_client import AlpacaClient
 from fastapi import HTTPException
+from app.core.dependencies import get_current_user
 
 router = APIRouter()
+
+
+def parse_alpaca_datetime(dt_str):
+    """Parse ISO datetime string from Alpaca to Python datetime object."""
+    if not dt_str:
+        return None
+    try:
+        # Alpaca returns ISO format like '2026-01-12T21:00:00Z'
+        return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+        return None
+
+
 #ENDPOINTS FOR ORDERS:
 # /orders/ [GET, POST]
 # GET /orders?status=open closed, all default=open
 
 # lista de la DB (fuente canónica para el frontend)
 @router.get("/", response_model=list[OrderRead])
-def list_orders(db: Session = Depends(get_db)):
+def list_orders(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     orders = db.query(Order).order_by(Order.created_at.desc()).all()
     return orders
 
 
 # lista RAW desde Alpaca (directo, útil para debug o datos frescos)
 @router.get("/alpaca", response_model=list[AlpacaOrder])
-def list_orders_from_alpaca(status: str = "all"):
+def list_orders_from_alpaca(status: str = "all", current_user: User = Depends(get_current_user)):
     alpaca = AlpacaClient()
     try:
         return alpaca.list_orders_from_alpaca(status=status)
@@ -29,7 +44,7 @@ def list_orders_from_alpaca(status: str = "all"):
         raise HTTPException(status_code=502, detail=f"Error al obtener órdenes de Alpaca: {e}")
 
 @router.post("/sync", response_model=list[OrderRead])
-def sync_orders_from_alpaca(db: Session = Depends(get_db), status: str = "all"):
+def sync_orders_from_alpaca(current_user: User = Depends(get_current_user), db: Session = Depends(get_db), status: str = "all"):
     """
     Sincroniza órdenes desde Alpaca al DB.
     Usa el mismo parámetro de status que la API de Alpaca.
@@ -101,34 +116,51 @@ def sync_orders_from_alpaca(db: Session = Depends(get_db), status: str = "all"):
     return upserted
 
 @router.post("/", response_model=OrderRead)
-def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
+def create_order(payload: OrderCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     alpaca = AlpacaClient()
 
-    # 1. Enviar la orden a Alpaca
+    # 1. Detect if symbol is crypto and set appropriate time_in_force
+    is_crypto = '/' in payload.symbol or (payload.symbol.endswith('USD') and len(payload.symbol) > 3)
+    
+    # For crypto, use 'gtc' (Alpaca only supports 'gtc' or 'ioc' for crypto)
+    time_in_force = payload.time_in_force if payload.time_in_force else "day"
+    if is_crypto:
+        if time_in_force not in ["gtc", "ioc"]:
+            time_in_force = "gtc"  # Default to gtc for crypto
+    
+    # 2. Enviar la orden a Alpaca
     try:
-        alpaca_response = alpaca.submit_order(
-            symbol=payload.symbol,
-            qty=payload.qty,
-            side=payload.side,
-            order_type=payload.order_type,
-            time_in_force=payload.time_in_force,
-        )
+        
+        # Build the order payload for Alpaca
+        alpaca_payload = {
+            "symbol": payload.symbol,
+            "qty": payload.quantity,
+            "side": payload.side,
+            "type": payload.type,
+            "time_in_force": time_in_force,
+        }
+        
+        # Add limit price if it's a limit order
+        if payload.type == "limit" and payload.price:
+            alpaca_payload["limit_price"] = payload.price
+        
+        alpaca_response = alpaca.submit_order(**alpaca_payload)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Error al enviar orden a Alpaca: {e}")
 
-    # 2. Guardar en DB con status real de Alpaca
+    # 3. Guardar en DB con status real de Alpaca
     order = Order(
         symbol=payload.symbol,
-        qty=str(payload.qty),
+        qty=str(payload.quantity),
         side=payload.side,
-        order_type=payload.order_type,
-        time_in_force=payload.time_in_force,
+        order_type=payload.type,
+        time_in_force=time_in_force,  # Use the corrected time_in_force value
         status=alpaca_response.get("status", "submitted"),
         alpaca_id=alpaca_response.get("id"),
         client_order_id=alpaca_response.get("client_order_id"),
-        created_at=alpaca_response.get("created_at"),
-        expires_at=alpaca_response.get("expires_at"),
-        filled_at=alpaca_response.get("filled_at"),
+        created_at=parse_alpaca_datetime(alpaca_response.get("created_at")),
+        expires_at=parse_alpaca_datetime(alpaca_response.get("expires_at")),
+        filled_at=parse_alpaca_datetime(alpaca_response.get("filled_at")),
     )
 
     db.add(order)
@@ -139,6 +171,24 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
 
 
 # Replace an existing order on Alpaca using the DB id to look up alpaca_id
+@router.delete("/{order_id}")
+def cancel_order(order_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Cancel an order in Alpaca by alpaca_id.
+    Returns 204 if successful, 422 if not cancelable.
+    """
+    alpaca = AlpacaClient()
+    try:
+        alpaca.delete_order(order_id)
+        # Update status in DB if we have this order
+        db_order = db.query(Order).filter(Order.alpaca_id == order_id).first()
+        if db_order:
+            db_order.status = "canceled"
+            db.commit()
+        return {"message": "Order canceled successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Cannot cancel order: {e}")
+
+
 @router.patch("/{order_db_id}/replace", response_model=AlpacaOrder)
 def replace_order(order_db_id: int, payload: OrderReplace, db: Session = Depends(get_db)):
     """Replace an order in Alpaca identified by internal DB id.

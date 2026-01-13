@@ -1,21 +1,54 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, Home, TrendingUp, Bot, Menu } from 'lucide-react';
+import { Activity, Home, Search, Bot, Menu, LogOut, BarChart3, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 
 export const Navigation = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { isAuthenticated, logout, user } = useAuth();
 
   const links = [
     { to: '/', label: 'Home', icon: Home },
-    { to: '/explore', label: 'Explore', icon: TrendingUp },
-    { to: '/strategy', label: 'Trading Bot', icon: Bot },
+    { to: '/explore', label: 'Explore', icon: Search },
+    { to: '/strategy', label: 'Strategy Config', icon: Bot },
+    { to: '/backtesting-strategy', label: 'Backtesting', icon: BarChart3 },
+    { to: '/paper-trading-live', label: 'Trading Live', icon: TrendingUp },
   ];
+
+  // Determinar el título según la ruta actual
+  const getPageTitle = () => {
+    const path = location.pathname.toLowerCase();
+    
+    if (path === '/') {
+      return 'Trading Bot Home';
+    } else if (path === '/explore') {
+      return 'Trading Bot Explore';
+    } else if (path === '/login') {
+      return 'Login';
+    } else if (path.startsWith('/vieworder')) {
+      return 'Trading Bot View Order';
+    } else if (path === '/strategy') {
+      return 'Trading Bot Strategy';
+    } else if (path === '/backtesting-strategy') {
+      return 'Backtesting Strategy';
+    } else if (path === '/paper-trading-live') {
+      return 'Paper Trading Live';
+    } else {
+      return 'Trading Bot Default';
+    }
+  };
+
+  // Don't show navigation on login page
+  if (location.pathname === '/login') {
+    return null;
+  }
 
   return (
     <header className="border-b border-border bg-card sticky top-0 z-50">
@@ -63,6 +96,28 @@ export const Navigation = () => {
                   <p className="text-sm font-medium mb-3">Tema</p>
                   <ThemeToggle />
                 </div>
+
+                {/* Logout button */}
+                {isAuthenticated && (
+                  <>
+                    <div className="border-t border-border my-4" />
+                    <div className="px-4 space-y-3">
+                      <p className="text-sm text-muted-foreground">Logged in as: <span className="font-medium text-foreground">{user?.username}</span></p>
+                      <Button 
+                        variant="destructive" 
+                        className="w-full flex items-center gap-2"
+                        onClick={() => {
+                          logout();
+                          setOpen(false);
+                          navigate('/login');
+                        }}
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </Button>
+                    </div>
+                  </>
+                )}
               </nav>
             </SheetContent>
           </Sheet>
@@ -72,7 +127,7 @@ export const Navigation = () => {
             <Activity className="w-8 h-8 text-primary" />
             <button onClick={() => navigate('/')}>
               <div>
-                <h1 className="text-2xl font-bold">Trading Bot Dashboard</h1>
+                <h1 className="text-2xl font-bold">{getPageTitle()}</h1>
                 <p className="text-sm text-muted-foreground">Automated Trading System</p>
               </div>
             </button>

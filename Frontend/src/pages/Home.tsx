@@ -1,5 +1,6 @@
-import { PortfolioChart } from '@/components/PortfolioChart';
-import { OrdersTable } from '@/components/OrdersTable';
+import { PortfolioChart } from '@/components/trading/PortfolioChart';
+import { PositionsTable } from '@/components/positions/PositionsTable';
+import { OrdersTable } from '@/components/orders/OrdersTable';
 import { MetricsPanel } from '@/components/MetricsPanel';
 
 const Home = () => {
@@ -12,6 +13,9 @@ const Home = () => {
 
           {/* Portfolio Chart */}
           <PortfolioChart />
+
+          {/* Top Positions Table */}
+          <PositionsTable />
 
           {/* Recent Orders Table */}
           <OrdersTable />

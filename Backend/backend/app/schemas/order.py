@@ -6,10 +6,14 @@ from pydantic import BaseModel, Field, ConfigDict
 # ---------- Schema for creating an order ----------
 class OrderCreate(BaseModel):
     symbol: str = Field(min_length=1, max_length=16, examples=["AAPL"])
-    qty: int = Field(gt=0, examples=[1])
+    quantity: float = Field(gt=0, examples=[1], alias="qty")  # Accept both quantity and qty, float for crypto support
     side: Literal["buy", "sell"]
-    order_type: Literal["market", "limit"] = "market"
-    time_in_force: Literal["day", "gtc"] = "day"
+    type: Literal["market", "limit"] = Field(default="market", alias="order_type")  # Accept both type and order_type
+    time_in_force: Literal["day", "gtc"] = Field(default="day")
+    price: Optional[float] = None  # For limit orders
+    
+    class Config:
+        populate_by_name = True  # Allow using both field name and alias
 
 
 # ---------- Schema for reading an order from DB ----------

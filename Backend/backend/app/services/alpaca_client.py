@@ -82,7 +82,7 @@ class AlpacaClient:
         symbol: str,
         qty: int,
         side: str,
-        order_type: str = "market",
+        type: str = "market",
         time_in_force: str = "day",
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -91,7 +91,7 @@ class AlpacaClient:
             "symbol": symbol,
             "qty": qty,
             "side": side,
-            "type": order_type,
+            "type": type,
             "time_in_force": time_in_force,
         }
         payload.update(kwargs)
@@ -113,21 +113,41 @@ class AlpacaClient:
         self._raise_for_status(resp)
         return resp.json()
 
+    def delete_order(self, order_id: str) -> None:
+        """Cancel an order on Alpaca using DELETE /v2/orders/{order_id}.
+        Returns None on success (204), raises on 422 if not cancelable.
+        """
+        url = self._url(f"/v2/orders/{order_id}")
+        logger.debug("DELETE %s", url)
+        resp = self.session.delete(url, timeout=self.timeout)
+        # 204 No Content = success, 422 = not cancelable
+        if resp.status_code == 204:
+            return
+        self._raise_for_status(resp)
+
     # -------- Market Data (Stocks Bars) --------
     def get_stock_bars(
         self,
-        symbols: str,
-        timeframe: str,
+        symbols: str = None,
+        symbol: str = None,
+        timeframe: str = "1Min",
         start: str | None = None,
         end: str | None = None,
         limit: int = 1000,
         adjustment: str = "raw",
         feed: str | None = None,
         sort: str = "asc",
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """Fetch bars from Alpaca Market Data API with simple pagination aggregation.
-        Returns dict with keys: bars (dict[symbol, list[bar]]).
+        Returns list of bars for a single symbol (for bot compatibility).
+        Accepts either 'symbols' or 'symbol' parameter.
         """
+        # Support both 'symbol' and 'symbols' for flexibility
+        if symbol and not symbols:
+            symbols = symbol
+        elif not symbols:
+            raise ValueError("Either 'symbol' or 'symbols' must be provided")
+            
         data_base = "https://data.alpaca.markets"
         path = "/v2/stocks/bars"
         url = f"{data_base}{path}"
@@ -145,7 +165,7 @@ class AlpacaClient:
         if feed:
             params["feed"] = feed
 
-        all_bars: Dict[str, list[Dict[str, Any]]] = {}
+        all_bars: List[Dict[str, Any]] = []
         page_token: str | None = None
 
         while True:
@@ -156,31 +176,34 @@ class AlpacaClient:
             self._raise_for_status(resp)
             payload = resp.json()
             bars = payload.get("bars", {}) or {}
+            # Extract bars for the first symbol
             for sym, items in bars.items():
-                if sym not in all_bars:
-                    all_bars[sym] = []
-                all_bars[sym].extend(items)
+                all_bars.extend(items)
+                break  # Only process first symbol
             page_token = payload.get("next_page_token")
             if not page_token:
                 break
 
-        return {"bars": all_bars}
+        return all_bars
 
     def get_crypto_bars(
         self,
-        loc: str,
-        symbols: str,
-        timeframe: str,
+        loc: str = "us",
+        symbols: str = None,
+        timeframe: str = "1Min",
         start: str | None = None,
         end: str | None = None,
         limit: int = 1000,
         sort: str = "asc",
         page_token: str | None = None,
-    ) -> dict:
+    ) -> List[Dict[str, Any]]:
         """Fetch crypto bars from Alpaca v1beta3 crypto endpoint with pagination.
 
-        Returns dict with key 'bars' mapping symbol -> list[bar].
+        Returns list of bars for a single symbol (for bot compatibility).
         """
+        if not symbols:
+            raise ValueError("'symbols' parameter is required")
+            
         data_base = "https://data.alpaca.markets"
         path = f"/v1beta3/crypto/{loc}/bars"
         url = f"{data_base}{path}"
@@ -195,7 +218,7 @@ class AlpacaClient:
         if end:
             params["end"] = end
 
-        all_bars: Dict[str, list[Dict[str, Any]]] = {}
+        all_bars: List[Dict[str, Any]] = []
         next_page: str | None = None
 
         while True:
@@ -206,15 +229,15 @@ class AlpacaClient:
             self._raise_for_status(resp)
             payload = resp.json()
             bars = payload.get("bars", {}) or {}
+            # Extract bars for the first symbol
             for sym, items in bars.items():
-                if sym not in all_bars:
-                    all_bars[sym] = []
-                all_bars[sym].extend(items)
+                all_bars.extend(items)
+                break  # Only process first symbol
             next_page = payload.get("next_page_token")
             if not next_page:
                 break
 
-        return {"bars": all_bars}
+        return all_bars
 
     def get_portfolio_history(
         self,
@@ -247,6 +270,10 @@ class AlpacaClient:
 
         logger.debug("GET %s params=%s", url, params)
         resp = self.session.get(url, params=params, timeout=self.timeout)
+        
+        # Log the full request URL for debugging
+        #logger.info("ALPACA REQUEST: %s", resp.url)
+        
         self._raise_for_status(resp)
         return resp.json()
 

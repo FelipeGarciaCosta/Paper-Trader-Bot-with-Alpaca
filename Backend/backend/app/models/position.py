@@ -32,7 +32,7 @@ class Position(Base):
     current_price = Column(Numeric(30, 10), nullable=True)
     lastday_price = Column(Numeric(30, 10), nullable=True)
     change_today = Column(Float, nullable=True)
-    qty_available = Column(Numeric(30, 10), nullable=True)
+    qty_available = Column(String(64), nullable=True)  # Store as string like qty
 
     # Store raw Alpaca payload for full fidelity and easier debugging.
     raw = Column(JSON, nullable=True)

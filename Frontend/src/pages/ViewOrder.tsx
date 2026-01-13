@@ -2,10 +2,24 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getRecentOrders } from '@/services/tradingApi';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { getRecentOrders, cancelOrder } from '@/services/tradingApi';
+import { useToast } from '@/hooks/use-toast';
 import type { Order } from '@/types/trading';
 
-const InfoRow = ({ label, value }: { label: string; value?: any }) => (
+const OPEN_STATUSES = ['accepted', 'new', 'partially_filled', 'calculated', 'pending_new', 'pending_cancel', 'accepted_for_bidding'];
+
+const InfoRow = ({ label, value }: { label: string; value?: React.ReactNode }) => (
     <div className="flex justify-between py-2 border-b border-muted/30">
         <div className="text-sm text-muted-foreground">{label}</div>
         <div className="text-sm font-medium">{value ?? '-'}</div>
@@ -15,8 +29,11 @@ const InfoRow = ({ label, value }: { label: string; value?: any }) => (
 const ViewOrder = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(false);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [canceling, setCanceling] = useState(false);
 
     useEffect(() => {
         const load = async () => {
@@ -33,6 +50,34 @@ const ViewOrder = () => {
         };
         load();
     }, [id]);
+
+    const handleCancelOrder = async () => {
+        if (!order?.alpaca_id) return;
+        
+        setCanceling(true);
+        try {
+            await cancelOrder(order.alpaca_id);
+            toast({
+                title: 'Order canceled',
+                description: `Order for ${order.symbol} has been canceled successfully.`,
+            });
+            setCancelDialogOpen(false);
+            // Reload order data
+            const orders = await getRecentOrders();
+            const found = orders.find(o => String(o.id) === String(id) || String(o.alpaca_id) === String(id));
+            if (found) setOrder(found as Order);
+        } catch (error) {
+            toast({
+                title: 'Cancelation failed',
+                description: error instanceof Error ? error.message : 'Failed to cancel order',
+                variant: 'destructive',
+            });
+        } finally {
+            setCanceling(false);
+        }
+    };
+
+    const isOrderCancelable = order && OPEN_STATUSES.includes(String(order.status).toLowerCase());
 
     if (loading) return <div className="p-6">Loading...</div>;
     if (!order) {
@@ -84,20 +129,35 @@ const ViewOrder = () => {
                 </div>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="p-6">
-                    <h3 className="font-semibold mb-3">Lifecycle of Status</h3>
-                    <InfoRow label="Created At" value={createdAt} />
-                    <InfoRow label="Filled At" value={filledAt} />
-                    <InfoRow label="Updated At" value={order.updated_at ? new Date(String(order.updated_at)).toLocaleString() : '-'} />
-                </Card>
+            {isOrderCancelable && (
+                <div className="mt-6">
+                    <Button
+                        variant="destructive"
+                        onClick={() => setCancelDialogOpen(true)}
+                        disabled={canceling}
+                    >
+                        {canceling ? 'Canceling...' : 'Cancel Order'}
+                    </Button>
+                </div>
+            )}
 
-                <Card className="p-6">
-                    <h3 className="font-semibold mb-3">Order Linkages</h3>
-                    <InfoRow label="Replaces" value={(order as any).replaces ?? '-'} />
-                    <InfoRow label="Replaced By" value={(order as any).replaced_by ?? '-'} />
-                </Card>
-            </div>
+            <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel Order</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to cancel this order for <strong>{order.symbol}</strong>?
+                            This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleCancelOrder} disabled={canceling}>
+                            Confirm
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

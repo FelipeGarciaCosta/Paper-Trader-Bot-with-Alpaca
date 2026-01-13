@@ -9,9 +9,29 @@ import type {
   CreateOrderRequest,
   PriceHistoryRequest,
   PortfolioValue,
+  BotConfig,
+  BacktestRequest,
+  BacktestResult,
+  BotStatus,
+  BotStartRequest,
+  BotStartResponse,
 } from '@/types/trading';
 
 const BASE_URL = 'http://localhost:8000';
+
+// Helper to get auth headers
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('auth_token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+}
 
 // Mock data generators 
 const generateMockAlpacaBars = (symbol: string): AlpacaBar[] => {
@@ -98,17 +118,16 @@ const generateMockPortfolioHistory = (timeRange: string): PortfolioValue[] => {
 
 const mockPositions: Position[] = [
   {
-    id: '1',
+    id: 1,
+    asset_id: 'mock-asset-1',
     symbol: 'BTC/USD',
-    side: 'buy',
-    entry_price: 48500,
-    quantity: 0.5,
+    asset_class: 'crypto',
+    qty: '0.5',
+    avg_entry_price: 48500,
     current_price: 50234,
-    unrealized_pnl: 867,
-    unrealized_pnl_percent: 3.57,
-    stop_loss: 47000,
-    take_profit: 52000,
-    opened_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    market_value: 25117,
+    unrealized_pl: 867,
+    unrealized_plpc: 3.57,
   },
 ];
 
@@ -201,45 +220,66 @@ export const getPriceHistory = async (
  * Creates a new order
  */
 export const createOrder = async (order: CreateOrderRequest): Promise<Order> => {
-  // TODO: Uncomment when connecting to real backend
-  /*
-  const response = await fetch(`${BASE_URL}/orders`, {
+  const response = await fetch(`${BASE_URL}/orders/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(order),
   });
-  if (!response.ok) throw new Error('Failed to create order');
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to create order' }));
+    throw new Error(error.detail || 'Failed to create order');
+  }
   return response.json();
-  */
-  // Mock implementation
-  await new Promise(resolve => setTimeout(resolve, 800));
-  return {
-    id: `order_${Date.now()}`,
-    ...order,
-    qty: order.quantity,
-    order_type: order.type,
-    status: 'filled',
-    created_at: new Date().toISOString(),
-    filled_avg_price: order.price || 50234,
-    filled_at: new Date().toISOString(),
-  };
+};
+
+/** * Cancels an order by alpaca_id
+ */
+export const cancelOrder = async (orderId: string): Promise<void> => {
+  const response = await fetch(`${BASE_URL}/orders/${orderId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to cancel order' }));
+    throw new Error(error.detail || 'Failed to cancel order');
+  }
+};
+
+/** * GET /positions
+ * Fetches all open positions from database
+ */
+export const getOpenPositions = async (): Promise<Position[]> => {
+  const response = await fetch(`${BASE_URL}/positions/`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch positions');
+  return response.json();
 };
 
 /**
- * GET /positions
- * Fetches all open positions
+ * POST /positions/sync
+ * Syncs positions from Alpaca to database
  */
-export const getOpenPositions = async (): Promise<Position[]> => {
-  // TODO: Uncomment when connecting to real backend
-  /*
-  const response = await fetch(`${BASE_URL}/positions`);
-  if (!response.ok) throw new Error('Failed to fetch positions');
+export const syncPositions = async (): Promise<Position[]> => {
+  const response = await fetch(`${BASE_URL}/positions/sync`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to sync positions');
   return response.json();
-  */
+};
 
-  // Mock implementation
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return mockPositions;
+/**
+ * DELETE /positions/{symbol_or_asset_id}
+ * Liquidates a position (closes it on Alpaca)
+ */
+export const liquidatePosition = async (symbolOrAssetId: string): Promise<Order> => {
+  const response = await fetch(`${BASE_URL}/positions/${symbolOrAssetId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to liquidate position');
+  return response.json();
 };
 
 /**
@@ -270,18 +310,36 @@ export const getTradingHistory = async (symbol?: string): Promise<ClosedPosition
  */
 export const getPortfolioHistory = async (
   timeRange: string,
-  options?: { store?: boolean; signal?: AbortSignal }
+  options?: { signal?: AbortSignal }
 ): Promise<PortfolioValue[]> => {
   // Call backend endpoint to retrieve portfolio history
-  const paramsObj: Record<string, string> = { timeRange };
-  if (options?.store !== undefined) {
-    paramsObj.store = options.store ? 'true' : 'false';
-  }
-  const params = new URLSearchParams(paramsObj);
+  const params = new URLSearchParams({ timeRange });
   const response = await fetch(`${BASE_URL}/portfolio/history?${params.toString()}`, { signal: options?.signal });
   if (!response.ok) throw new Error('Failed to fetch portfolio history');
   return response.json();
 };
+
+/**
+ * GET /portfolio/value
+ * Fetches current portfolio value from Alpaca account
+ */
+export const getAccountPortfolioValue = async (signal?: AbortSignal): Promise<number> => {
+  const response = await fetch(`${BASE_URL}/portfolio/value`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch portfolio value');
+  const data: { portfolio_value: number } = await response.json();
+  return data.portfolio_value;
+};
+
+interface CryptoBar {
+  symbol: string;
+  timeframe: string;
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
 
 /**
  * GET /market-data/crypto/{loc}/bars
@@ -325,7 +383,7 @@ export const getCryptoHistory = async (
 
   const data = await res.json();
   // backend returns array of { symbol, timeframe, timestamp, open, high, low, close, volume, ... }
-  return (data as Array<any>).map((b) => ({
+  return (data as CryptoBar[]).map((b) => ({
     timestamp: b.timestamp,
     open: b.open,
     high: b.high,
@@ -338,7 +396,7 @@ export const getCryptoHistory = async (
 export const syncOrders = async (): Promise<void> => {
   const response = await fetch(`${BASE_URL}/orders/sync`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to sync orders');
   return response.json();
@@ -354,7 +412,9 @@ export const getRecentOrders = async (): Promise<Order[]> => {
 
   //sync before fetching
   await syncOrders();
-  const response = await fetch(`${BASE_URL}/orders/?status=all`);
+  const response = await fetch(`${BASE_URL}/orders/?status=all`, {
+    headers: getAuthHeaders(),
+  });
   if (!response.ok) throw new Error('Failed to fetch recent orders');
   return response.json();
 
@@ -384,27 +444,135 @@ export const getRecentOrders = async (): Promise<Order[]> => {
  * Fetches aggregated trading metrics
  */
 export const getTradingMetrics = async (): Promise<TradingMetrics> => {
-  // TODO: Uncomment when connecting to real backend
-  /*
-  const response = await fetch(`${BASE_URL}/metrics`);
+  const response = await fetch(`${BASE_URL}/metrics/`, {
+    headers: getAuthHeaders(),
+  });
   if (!response.ok) throw new Error('Failed to fetch metrics');
   return response.json();
-  */
+};
 
-  // Mock implementation
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return {
-    total_trades: 24,
-    winning_trades: 16,
-    losing_trades: 8,
-    win_rate: 66.67,
-    total_pnl: 5420,
-    total_pnl_percent: 12.4,
-    average_win: 520,
-    average_loss: -280,
-    profit_factor: 1.86,
-    max_drawdown: -1250,
-    max_drawdown_percent: -3.2,
-    sharpe_ratio: 1.8,
-  };
+// ---------- Bot API Functions ----------
+
+/**
+ * POST /bot/config
+ * Create or update bot configuration
+ */
+export const saveBotConfig = async (config: Omit<BotConfig, 'id' | 'created_at' | 'updated_at'>): Promise<BotConfig> => {
+  const response = await fetch(`${BASE_URL}/bot/config`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to save bot config' }));
+    throw new Error(error.detail || 'Failed to save bot config');
+  }
+  return response.json();
+};
+
+/**
+ * GET /bot/config/{symbol}
+ * Get bot configuration for a symbol
+ */
+export const getBotConfig = async (symbol: string): Promise<BotConfig> => {
+  const response = await fetch(`${BASE_URL}/bot/config/${encodeURIComponent(symbol)}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Bot configuration not found');
+    }
+    throw new Error('Failed to fetch bot config');
+  }
+  return response.json();
+};
+
+/**
+ * GET /bot/config
+ * List all bot configurations
+ */
+export const listBotConfigs = async (): Promise<BotConfig[]> => {
+  const response = await fetch(`${BASE_URL}/bot/config`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch bot configs');
+  return response.json();
+};
+
+/**
+ * POST /bot/backtest
+ * Run a backtest
+ */
+export const runBacktest = async (request: BacktestRequest): Promise<BacktestResult> => {
+  const response = await fetch(`${BASE_URL}/bot/backtest`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to run backtest' }));
+    throw new Error(error.detail || 'Failed to run backtest');
+  }
+  return response.json();
+};
+
+/**
+ * GET /bot/backtest/history
+ * Get historical backtest results
+ */
+export const getBacktestHistory = async (symbol?: string, limit: number = 10): Promise<BacktestResult[]> => {
+  const params = new URLSearchParams();
+  if (symbol) params.append('symbol', symbol);
+  params.append('limit', limit.toString());
+  
+  const response = await fetch(`${BASE_URL}/bot/backtest/history?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch backtest history');
+  return response.json();
+};
+
+/**
+ * POST /bot/start
+ * Start the trading bot
+ */
+export const startBot = async (request: BotStartRequest): Promise<BotStartResponse> => {
+  const response = await fetch(`${BASE_URL}/bot/start`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to start bot' }));
+    throw new Error(error.detail || 'Failed to start bot');
+  }
+  return response.json();
+};
+
+/**
+ * POST /bot/stop
+ * Stop the trading bot
+ */
+export const stopBot = async (): Promise<{ success: boolean; message: string }> => {
+  const response = await fetch(`${BASE_URL}/bot/stop`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to stop bot' }));
+    throw new Error(error.detail || 'Failed to stop bot');
+  }
+  return response.json();
+};
+
+/**
+ * GET /bot/status
+ * Get bot status
+ */
+export const getBotStatus = async (): Promise<BotStatus> => {
+  const response = await fetch(`${BASE_URL}/bot/status`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch bot status');
+  return response.json();
 };

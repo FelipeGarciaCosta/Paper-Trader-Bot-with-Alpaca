@@ -138,7 +138,7 @@ def get_price_history(
     end: str | None = Query(None, description="RFC-3339 or YYYY-MM-DD"),
     limit: int = Query(1000, ge=1, le=10000),
     adjustment: str = Query("raw"),
-    feed: str | None = Query(None),
+    feed: str = Query("iex", description="Data feed (iex for free tier, sip for paid)"),
     sort: str = Query("asc", pattern="^(asc|desc)$"),
 ):
     """
@@ -160,7 +160,8 @@ def get_price_history(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Error calling Alpaca: {e}")
 
-    bars = data.get("bars", {}).get(symbol, [])
+    # get_stock_bars returns a list directly, not a dict with "bars" key
+    bars = data if isinstance(data, list) else []
 
     # Map Alpaca bar format to frontend PriceData format
     mapped = []
