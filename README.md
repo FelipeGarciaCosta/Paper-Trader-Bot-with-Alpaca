@@ -1,8 +1,8 @@
-# 📈 Paper Trading Bot with Alpaca
+# <img src="Frontend/public/trading-bot-icono-fav.ico" alt="PaperTrader Logo" width="32" style="vertical-align: middle;"/> Paper Trading Bot with Alpaca 
 
 A full-stack paper trading platform that integrates with Alpaca Markets API, enabling users to practice trading strategies with real-time market data without risking real money.
 
-## 🎯 Overview
+##  Overview
 
 This application provides a complete paper trading experience with portfolio tracking, real-time market data visualization, and order management. Built with a modern tech stack, it features a FastAPI backend for robust API handling and a React frontend with beautiful UI components.
 
@@ -16,7 +16,7 @@ This application provides a complete paper trading experience with portfolio tra
 - **Dark/Light Theme**: Modern UI with theme switching support
 - **Historical Data**: View portfolio history and analyze trading performance over time
 
-## 🏗️ Architecture
+##  Architecture
 
 The project follows a microservices architecture with clear separation between frontend and backend:
 
@@ -38,7 +38,7 @@ The project follows a microservices architecture with clear separation between f
         └── types/          # TypeScript type definitions
 ```
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 ### Backend Stack
 
@@ -66,7 +66,7 @@ The project follows a microservices architecture with clear separation between f
 | **Forms** | Form Handling | React Hook Form 7.61, Zod 3.25 |
 | **Themes** | Dark/Light Mode | next-themes 0.3 |
 
-## 📋 Prerequisites
+##  Prerequisites
 
 Before deploying the application, ensure you have:
 
@@ -75,7 +75,7 @@ Before deploying the application, ensure you have:
 - **PostgreSQL** 14+ (optional, can use SQLite for development)
 - **Alpaca Account**: Sign up at [Alpaca Markets](https://alpaca.markets/) and get paper trading API credentials
 
-## 🚀 Deployment Instructions
+##  Deployment Instructions
 
 ### 1. Clone the Repository
 
@@ -163,7 +163,7 @@ cd Frontend
 # Build and serve with nginx or node server
 ```
 
-## 📚 API Documentation
+##  API Documentation
 
 Once the backend is running, visit:
 - **Swagger UI**: `http://localhost:8000/docs`
@@ -197,7 +197,7 @@ npm run dev
 
 Hot-reload is enabled for both environments.
 
-## 📝 Environment Variables Reference
+##  Environment Variables Reference
 
 ### Backend (.env)
 
@@ -210,14 +210,14 @@ Hot-reload is enabled for both environments.
 | `APP_NAME` | Application name | `PaperTradeBot API` |
 | `BACKEND_PORT` | Server port | `8000` |
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📄 License
+##  License
 
 This project is for educational purposes. Please ensure compliance with Alpaca Markets' terms of service.
 
-## ⚠️ Disclaimer
+##  Disclaimer
 
 This is a paper trading application for educational and practice purposes only. No real money is involved. Always practice risk management and do your own research before trading with real funds.
