@@ -148,7 +148,7 @@ The frontend will be available at `http://localhost:5173` (dev) or `http://local
 2. The app will connect to the backend at `http://localhost:8000`
 3. Start exploring markets and placing paper trades!
 
-## 🐳 Docker Deployment (Optional)
+##  Docker Deployment (Optional)
 
 If you prefer using Docker:
 
