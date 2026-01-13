@@ -1,15 +1,15 @@
-# PaperTrader — Resumen y guía rápida de desarrollo
+﻿# PaperTrader — Summary and Quick Development Guide
 
-Resumen breve
-- Proyecto: PaperTrader con backend en Python (FastAPI) que obtiene historic bars de Alpaca y guarda datos en SQLite.
+Brief Overview
+- Project: PaperTrader with Python backend (FastAPI) that fetches historical bars from Alpaca and stores data in SQLite.
 
-1) Preparar el entorno (local)
-- Requisitos: Python 3.8+ y pip; opcional Docker.
-- Crear entorno virtual e instalar dependencias:
+1) Setup Environment (Local)
+- Requirements: Python 3.8+ and pip; Docker is optional.
+- Create virtual environment and install dependencies:
   ```sh
   python -m venv .venv
   .venv\Scripts\activate    # Windows
   pip install -r backend/app/requirements.txt
 
-  uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
   python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+  ```
